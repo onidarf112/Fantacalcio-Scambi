@@ -85,7 +85,4 @@ if file_quot and file_stat:
     except Exception as e:
         st.error(f"Errore durante il caricamento o l'elaborazione: {e}")
 
-if "Punteggio" in df.columns:
-    st.subheader("🏅 Top 20 Giocatori per Punteggio Totale")
-    top_20 = df.sort_values(by="Punteggio", ascending=False).head(20)
-    st.dataframe(top_20[["Nome", "Squadra","Punteggio"]].reset_index(drop=True), use_container_width=True)
+
