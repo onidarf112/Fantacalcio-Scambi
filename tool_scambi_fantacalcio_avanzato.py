@@ -88,7 +88,7 @@ if file_quot and file_stat:
         # 🔝 Visualizza top 20 per punteggio
         st.subheader("🏅 Top 20 Giocatori per Punteggio Totale")
         top_20 = df.sort_values(by="PUNTEGGIO", ascending=False).head(20)
-        st.dataframe(top_20[["NOME", "SQUADRA", "RUOLO", "PUNTEGGIO"]].reset_index(drop=True), use_container_width=True)
+        st.dataframe(top_20[["Nome", "SQUADRA", "RUOLO", "PUNTEGGIO"]].reset_index(drop=True), use_container_width=True)
 
     except Exception as e:
         st.error(f"Errore nel caricamento o calcolo: {e}")
