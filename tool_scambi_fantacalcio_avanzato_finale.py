@@ -15,8 +15,8 @@ soglia_max = st.slider("🎯 Soglia massima di scostamento (%)", 0.0, 50.0, 10.0
 if file_quot and file_stat:
     try:
         # Leggi con header sulla riga 2 (indice 1)
-        df_quot = pd.read_excel(file_quot, header=1)
-        df_stat = pd.read_excel(file_stat, header=1)
+      df_quot = pd.read_excel("Quotazioni_Fantacalcio_Stagione_2024_25.xlsx", header=1)
+df_stat = pd.read_excel("Statistiche_Fantacalcio_Stagione_2024_25 (1).xlsx", header=1)
 
         # Merge sui nomi
         df = pd.merge(df_quot, df_stat, on="Nome", how="inner")
