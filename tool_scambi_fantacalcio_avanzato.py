@@ -4,7 +4,7 @@ import pandas as pd
 from scipy.stats import percentileofscore
 
 st.set_page_config(page_title="Fantacalcio - Scambi Avanzati", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi Avanzati")
+st.title("⚽ Fantacalcio - Tool Scambi Avanzati by Onidarf")
 
 # Caricamento file
 file_quot = st.file_uploader("Carica il file delle Quotazioni (.xlsx)", type="xlsx")
