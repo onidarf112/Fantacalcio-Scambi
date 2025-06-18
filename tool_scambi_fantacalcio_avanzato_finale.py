@@ -20,8 +20,22 @@ if file_quot and file_stat:
         df_quot = pd.read_excel(file_quot)
         df_stat = pd.read_excel(file_stat)
 
-        # Uniforma nomi delle colonne in minuscolo
-        df_quot.columns = df_quot.columns.str.lower().str.strip()
+     # Normalizza nomi colonne
+df_quot.columns = df_quot.columns.str.lower().str.strip()
+
+# Mostra le colonne disponibili per debug
+st.write("Colonne trovate nel file quotazioni:", df_quot.columns.tolist())
+
+# Controlla se tutte le colonne richieste esistono
+richieste = ["nome", "ruolo", "squadra", "qta", "fvm m"]
+mancanti = [col for col in richieste if col not in df_quot.columns]
+
+if mancanti:
+    st.error(f"⚠️ Colonne mancanti nel file quotazioni: {mancanti}")
+    st.stop()
+else:
+    df_quot = df_quot[richieste]
+
         df_stat.columns = df_stat.columns.str.lower().str.strip()
 
         # Seleziona colonne rilevanti
