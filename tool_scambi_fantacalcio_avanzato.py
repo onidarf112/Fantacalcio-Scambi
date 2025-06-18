@@ -52,12 +52,12 @@ if file_quot and file_stat:
         ) * 150
         
         # Sezione per mostrare i 30 migliori punteggi
-        st.subheader("🏆 Top 30 Migliori Punteggi")
-        top_30 = df.nlargest(30, "Punteggio")[["Nome", "Punteggio", "FVM M", "Fm", "Qt.A", "Pv"]]
-        top_30_display = top_30.copy()
-        top_30_display["Punteggio"] = top_30_display["Punteggio"].round(2)
-        top_30_display.index = range(1, len(top_30_display) + 1)
-        st.dataframe(top_30_display, use_container_width=True)
+        st.subheader("🏆 Top 100 Migliori Punteggi")
+        top_100 = df.nlargest(100, "Punteggio")[["Nome", "Punteggio", "FVM M", "Fm", "Qt.A", "Pv"]]
+        top_100_display = top_100.copy()
+        top_100_display["Punteggio"] = top_100_display["Punteggio"].round(2)
+        top_100_display.index = range(1, len(top_100_display) + 1)
+        st.dataframe(top_100_display, use_container_width=True)
         
         # Scelta giocatori per lo scambio
         nomi_giocatori = df["Nome"].sort_values().tolist()
