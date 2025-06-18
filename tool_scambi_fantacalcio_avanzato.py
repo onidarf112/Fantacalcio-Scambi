@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from scipy.stats import percentileofscore
 
-st.set_page_config(page_title="Fantacalcio - Tool Scambi", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi By Onidarf")
+st.set_page_config(page_title="Fantacalcio - Scambi Avanzati", layout="wide")
+st.title("⚽ Fantacalcio - Tool Scambi Avanzati")
 
 # Caricamento file
 file_quot = st.file_uploader("Carica il file delle Quotazioni (.xlsx)", type="xlsx")
@@ -32,25 +32,24 @@ if file_quot and file_stat:
         
         # Bonus/malus
         bonus_raw = (
-    5 * stats.zscore(df["Gf"]) +
-    2 * stats.zscore(df["Ass"]) +
-    -1 * stats.zscore(df["Amm"]) +
-    -2 * stats.zscore(df["Esp"]) +
-    4 * stats.zscore(df["Rp"]) +
-    1 * stats.zscore(df["Rc"])
-)
+            3 * df["Gf"] +
+            1 * df["Ass"] +
+            -0.5 * df["Amm"] +
+            -1 * df["Esp"] +
+            3 * df["Rp"] +
+            1 * df["Rc"]
+        )
         bonus_norm = (bonus_raw - bonus_raw.min()) / (bonus_raw.max() - bonus_raw.min())
         df["BonusMalus"] = bonus_norm.fillna(0)
         
         # Formula combinata
-        # Aumenta il peso a 15-20%
-df["Punteggio"] = (
-    0.20 * df["Perc_FVM_M"] +
-    0.35 * df["Perc_FM"] +
-    0.20 * df["Perc_QTA"] +
-    0.10 * df["Perc_Pres"] +
-    0.15 * df["BonusMalus"]  # Aumentato da 0.05
-) * 150
+        df["Punteggio"] = (
+            0.35 * df["Perc_FVM_M"] +
+            0.35 * df["Perc_FM"] +
+            0.15 * df["Perc_QTA"] +
+            0.10 * df["Perc_Pres"] +
+            0.05 * df["BonusMalus"]
+        ) * 150
         
         # Sezione per mostrare i 30 migliori punteggi
         st.subheader("🏆 Top 30 Migliori Punteggi")
@@ -93,4 +92,4 @@ df["Punteggio"] = (
                 st.error("❌ Scambio NON valido (fuori soglia)")
                 
     except Exception as e:
-        st.error(f"Errore durante il caricamento o l'elaborazione: {e}")
+        st.error(f"Errore durante il caricamento o l'elaborazione: {e}") 
