@@ -44,11 +44,11 @@ if file_quot and file_stat:
         
         # Formula combinata
         df["Punteggio"] = (
-            0.35 * df["Perc_FVM_M"] +
+            0.25 * df["Perc_FVM_M"] +
             0.35 * df["Perc_FM"] +
-            0.15 * df["Perc_QTA"] +
+            0.20 * df["Perc_QTA"] +
             0.10 * df["Perc_Pres"] +
-            0.05 * df["BonusMalus"]
+            0.10 * df["BonusMalus"]
         ) * 150
         
         # Sezione per mostrare i 30 migliori punteggi
