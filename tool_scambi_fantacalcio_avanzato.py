@@ -3,6 +3,30 @@ import streamlit as st
 import pandas as pd
 from scipy.stats import percentileofscore
 
+st.markdown("""
+    <style>
+    .main {
+        background-color: #1e1e1e;
+        color: #f1f1f1;
+    }
+    .stButton>button {
+        background-color: #c19c00;
+        color: white;
+        font-weight: bold;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+    }
+    .stSlider>div>div {
+        color: #c19c00 !important;
+    }
+    .stSelectbox>div>div>div {
+        background-color: #333333;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
 st.set_page_config(page_title="Fantacalcio - Scambi Avanzati", layout="wide")
 st.title("⚽ Fantacalcio - Tool Scambi Avanzati by Onidarf")
 
