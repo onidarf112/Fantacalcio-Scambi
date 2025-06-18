@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from scipy.stats import percentileofscore
 
-st.set_page_config(page_title="Fantacalcio - Scambi Avanzati", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi Avanzati")
+st.set_page_config(page_title="Fantacalcio - Tool Scambi", layout="wide")
+st.title("⚽ Fantacalcio - Tool Scambi By Onidarf")
 
 # Caricamento file
 file_quot = st.file_uploader("Carica il file delle Quotazioni (.xlsx)", type="xlsx")
