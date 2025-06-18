@@ -21,7 +21,7 @@ if file_quot and file_stat:
         # Merge sui nomi
         df = pd.merge(df_quot, df_stat, on="Nome", how="inner")
 
-        colonne = ["Nome", "Ruolo", "Squadra", "QtA", "FVM M", "Presenze", "Gol", "Assist", "Ammonizioni", "Espulsioni", "Rigori Segnati", "Rigori Sbagliati", "Porta Inviolata", "Rigori Parati"]
+        colonne = ["Nome", "RM", "Squadra", "QtA", "FVM M", "Presenze", "Gol", "Assist", "Ammonizioni", "Espulsioni", "Rigori Segnati", "Rigori Sbagliati", "Porta Inviolata", "Rigori Parati"]
         for col in colonne:
             if col not in df.columns:
                 st.error(f"❌ Colonna mancante: '{col}'")
