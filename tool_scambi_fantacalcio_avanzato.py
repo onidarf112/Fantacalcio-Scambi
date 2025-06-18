@@ -3,28 +3,53 @@ import streamlit as st
 import pandas as pd
 from scipy.stats import percentileofscore
 
+# 🌟 Tema personalizzato stile fantacalcio
 st.markdown("""
     <style>
-    .main {
-        background-color: #1e1e1e;
-        color: #f1f1f1;
+    html, body, [class*="css"] {
+        background: linear-gradient(to bottom, #d9f7e4, #e3f2fd);
+        font-family: 'Segoe UI', sans-serif;
     }
-    .stButton>button {
-        background-color: #c19c00;
-        color: white;
+
+    h1, h2, h3, h4 {
+        color: #005288;
         font-weight: bold;
-        border-radius: 5px;
-        padding: 0.5rem 1rem;
     }
-    .stSlider>div>div {
-        color: #c19c00 !important;
-    }
-    .stSelectbox>div>div>div {
-        background-color: #333333;
+
+    .stButton>button {
+        background-color: #1b5e20;
         color: white;
+        border-radius: 12px;
+        padding: 0.5em 1.5em;
+        font-weight: bold;
+        font-size: 16px;
+    }
+
+    .stSelectbox>div>div>div {
+        background-color: #e8f5e9;
+        color: #f7f7f7;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+
+    .stSlider>div>div {
+        color: #1b5e20 !important;
+    }
+
+    .stMetric {
+        background-color: #ffffff;
+        padding: 1rem;
+        border: 2px solid #bbdefb;
+        border-radius: 15px;
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
     }
     </style>
 """, unsafe_allow_html=True)
+
 
 
 st.set_page_config(page_title="Fantacalcio - Scambi Avanzati", layout="wide")
