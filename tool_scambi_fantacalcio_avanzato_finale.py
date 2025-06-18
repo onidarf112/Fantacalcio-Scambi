@@ -1,104 +1,76 @@
-
-import pandas as pd
 import streamlit as st
+import pandas as pd
 from scipy.stats import percentileofscore
 
 st.set_page_config(page_title="Tool Scambi Fantacalcio", layout="wide")
 
-st.title("⚽ Tool Scambi Fantacalcio – Calcolo con Soglia e Multi-scambio")
+st.title("⚽ Tool Scambi Fantacalcio - Multi Scambio + Formula Avanzata")
 
-# Caricamento file
-file_quot = st.file_uploader("📥 Carica file Quotazioni", type=["xlsx"])
-file_stat = st.file_uploader("📥 Carica file Statistiche", type=["xlsx"])
+st.markdown("### 📂 Carica i file")
+file_quot = st.file_uploader("Carica il file delle **quotazioni** (.xlsx)", type="xlsx")
+file_stat = st.file_uploader("Carica il file delle **statistiche** (.xlsx)", type="xlsx")
 
-# Soglia dinamica
-soglia_percentuale = st.slider("🎯 Imposta la soglia massima di differenza (%)", 0.0, 50.0, 10.0)
+soglia_max = st.slider("🎯 Soglia massima di scostamento (%)", 0.0, 50.0, 10.0, 0.1)
 
 if file_quot and file_stat:
     try:
-        # Lettura file
-        df_quot = pd.read_excel(file_quot)
-        df_stat = pd.read_excel(file_stat)
+        # Leggi con header sulla riga 2 (indice 1)
+        df_quot = pd.read_excel(file_quot, header=1)
+        df_stat = pd.read_excel(file_stat, header=1)
 
-     # Normalizza nomi colonne
-df_quot.columns = df_quot.columns.str.lower().str.strip()
+        # Merge sui nomi
+        df = pd.merge(df_quot, df_stat, on="Nome", how="inner")
 
-# Mostra le colonne disponibili per debug
-st.write("Colonne trovate nel file quotazioni:", df_quot.columns.tolist())
+        colonne = ["Nome", "Ruolo", "Squadra", "QtA", "FVM M", "Presenze", "Gol", "Assist", "Ammonizioni", "Espulsioni", "Rigori Segnati", "Rigori Sbagliati", "Porta Inviolata", "Rigori Parati"]
+        for col in colonne:
+            if col not in df.columns:
+                st.error(f"❌ Colonna mancante: '{col}'")
+                st.stop()
 
-# Controlla se tutte le colonne richieste esistono
-richieste = ["nome", "ruolo", "squadra", "qta", "fvm m"]
-mancanti = [col for col in richieste if col not in df_quot.columns]
+        df["Perc_FVM"] = df["FVM M"].rank(pct=True) * 100
+        df["Perc_QtA"] = df["QtA"].rank(pct=True) * 100
 
-if mancanti:
-    st.error(f"⚠️ Colonne mancanti nel file quotazioni: {mancanti}")
-    st.stop()
-else:
-    df_quot = df_quot[richieste]
-
-        df_stat.columns = df_stat.columns.str.lower().str.strip()
-
-        # Seleziona colonne rilevanti
-        df_quot = df_quot[["nome", "ruolo", "squadra", "qta", "fvm m"]]
-        df_stat = df_stat[["nome", "presenze", "mv", "fm", "gol", "assist", "ammonizione", "espulsione", "rigori segnati", "rigori sbagliati", "rigori parati", "porta inviolata"]]
-
-        # Merge su nome (senza distinzione maiuscole/minuscole)
-        df = pd.merge(df_quot, df_stat, on="nome", how="inner")
-
-        # Calcolo punteggio personalizzato
-        df["punteggio_eventi"] = (
-            df["gol"] * 3 +
-            df["assist"] * 1 +
-            df["ammonizione"] * -0.5 +
-            df["espulsione"] * -1 +
-            df["rigori segnati"] * 3 +
-            df["rigori sbagliati"] * -3 +
-            df["rigori parati"] * 3 +
-            df["porta inviolata"] * 1
+        df["Punteggio"] = (
+            df["QtA"] * 0.3 +
+            df["FVM M"] * 0.4 +
+            df["Presenze"] * 0.05 +
+            df["Gol"] * 3 +
+            df["Assist"] * 1 +
+            df["Ammonizioni"] * -0.5 +
+            df["Espulsioni"] * -1 +
+            df["Rigori Segnati"] * 3 +
+            df["Rigori Sbagliati"] * -3 +
+            df["Porta Inviolata"] * 1 +
+            df["Rigori Parati"] * 3
         )
 
-        # Formula finale combinata
-        df["punteggio_totale"] = (
-            0.4 * df["fm"] +
-            0.4 * df["qta"] +
-            0.1 * df["fvm m"] +
-            0.05 * df["presenze"] +
-            0.05 * df["punteggio_eventi"]
-        )
+        giocatori = df["Nome"].tolist()
+        colA, colB = st.columns(2)
+        with colA:
+            st.subheader("🔵 Squadra A")
+            squadra_a = [st.selectbox(f"A{i+1}", [""] + giocatori, key=f"A{i}") for i in range(7)]
+        with colB:
+            st.subheader("🔴 Squadra B")
+            squadra_b = [st.selectbox(f"B{i+1}", [""] + giocatori, key=f"B{i}") for i in range(7)]
 
-        # Calcolo percentile
-        df["percentile"] = df["punteggio_totale"].rank(pct=True) * 100
-
-        # Interfaccia di selezione giocatori
-        st.subheader("👥 Seleziona i giocatori da scambiare")
-
-        col1, col2 = st.columns(2)
-        options = df["nome"].tolist()
-
-        squadra_a = [col1.selectbox(f"A{i+1}", options, key=f"a{i}") for i in range(7)]
-        squadra_b = [col2.selectbox(f"B{i+1}", options, key=f"b{i}") for i in range(7)]
-
-        # Rimuovi vuoti
-        squadra_a = [p for p in squadra_a if p]
-        squadra_b = [p for p in squadra_b if p]
+        squadra_a = [g for g in squadra_a if g]
+        squadra_b = [g for g in squadra_b if g]
 
         if squadra_a and squadra_b:
-            somma_a = df[df["nome"].isin(squadra_a)]["punteggio_totale"].sum()
-            somma_b = df[df["nome"].isin(squadra_b)]["punteggio_totale"].sum()
-            diff = abs(somma_a - somma_b)
-            media = (somma_a + somma_b) / 2
-            percentuale_diff = (diff / media) * 100
+            tot_a = df[df["Nome"].isin(squadra_a)]["Punteggio"].sum()
+            tot_b = df[df["Nome"].isin(squadra_b)]["Punteggio"].sum()
+            diff = abs(tot_a - tot_b)
+            media = (tot_a + tot_b) / 2
+            perc_diff = (diff / media) * 100 if media != 0 else 0
 
             st.markdown("### 📊 Risultato confronto")
-            st.write(f"Totale Squadra A: **{somma_a:.2f}**")
-            st.write(f"Totale Squadra B: **{somma_b:.2f}**")
-            st.write(f"Differenza %: **{percentuale_diff:.2f}%**")
-            st.write(f"Soglia impostata: **{soglia_percentuale:.2f}%**")
-
-            if percentuale_diff <= soglia_percentuale:
+            st.write(f"**Totale Squadra A**: {tot_a:.2f}")
+            st.write(f"**Totale Squadra B**: {tot_b:.2f}")
+            st.write(f"**Differenza %**: {perc_diff:.2f}%")
+            if perc_diff <= soglia_max:
                 st.success("✅ Scambio VALIDO!")
             else:
-                st.error("❌ Scambio NON valido")
+                st.error("❌ Scambio NON valido (fuori soglia)")
 
     except Exception as e:
-        st.error(f"Errore: {e}")
+        st.error(f"Errore nel caricamento o calcolo: {e}")
