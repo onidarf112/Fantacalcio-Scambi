@@ -18,9 +18,17 @@ peso_fvm = st.sidebar.slider("Peso FVM M", 0.0, 1.0, 0.30, step=0.05)
 peso_fm = st.sidebar.slider("Peso Fm", 0.0, 1.0, 0.25, step=0.05)
 peso_qta = st.sidebar.slider("Peso Qt.A", 0.0, 1.0, 0.20, step=0.05)
 peso_pres = st.sidebar.slider("Peso Presenze", 0.0, 1.0, 0.15, step=0.05)
-peso_bonus = st.sidebar.slider("Peso Bonus/Malus", 0.0, 1.0, 0.10, step=0.05)
-
-# Normalizzazione pesi
+            # Normalizzazione pesi
+        peso_bonus = st.sidebar.slider("Peso Bonus/Malus", 0.0, 1.0, 0.10, step=0.05)
+        
+        # Configurazione scale per ruolo
+        st.sidebar.subheader("⚖️ Scale Punteggio per Ruolo")
+        scala_por = st.sidebar.slider("Scala Portieri", 80, 150, 120, step=5)
+        scala_dif = st.sidebar.slider("Scala Difensori", 100, 170, 140, step=5)
+        scala_cen = st.sidebar.slider("Scala Centrocampisti", 120, 190, 160, step=5)
+        scala_att = st.sidebar.slider("Scala Attaccanti", 140, 200, 180, step=5)
+        
+        # Normalizzazione pesi
 totale_pesi = peso_fvm + peso_fm + peso_qta + peso_pres + peso_bonus
 if totale_pesi != 1.0:
     st.sidebar.warning(f"⚠️ Totale pesi: {totale_pesi:.2f} (dovrebbe essere 1.0)")
@@ -53,42 +61,43 @@ if file_quot and file_stat:
         df["Perc_QTA"] = df["Qt.A"].rank(pct=True)
         df["Perc_Pres"] = df["Pv"].rank(pct=True)
         
-        # Sistema Bonus/Malus migliorato
+        # Sistema Bonus/Malus migliorato e bilanciato per ruolo
         def calcola_bonus_ruolo(row):
             ruolo = row["R"]
             if ruolo == "Por":  # Portiere
                 return (
-                    8 * row["Gf"] +      # Gol portiere molto rari
-                    2 * row["Ass"] +
-                    6 * row["Rp"] +      # Rigori parati importantissimi
-                    -2 * row["Amm"] +
-                    -5 * row["Esp"]
+                    10 * row["Gf"] +     # Gol portiere rarissimi = massimo bonus
+                    3 * row["Ass"] +     # Assist portiere rari
+                    8 * row["Rp"] +      # Rigori parati = specialità portieri
+                    -1 * row["Amm"] +    # Ammonizioni meno gravi per portieri
+                    -6 * row["Esp"]      # Espulsioni molto gravi
                 )
-            elif ruolo == "Dif":  # Difensore
+            elif ruolo == "Dif":  # Difensore  
                 return (
-                    4 * row["Gf"] +
-                    2 * row["Ass"] +
-                    -1 * row["Amm"] +
-                    -3 * row["Esp"] +
-                    1 * row["Rc"]
+                    5 * row["Gf"] +      # Gol difensore molto preziosi
+                    3 * row["Ass"] +     # Assist difensore importanti
+                    1 * row["Rp"] +      # Rigori meno comuni
+                    0.5 * row["Rc"] +    # Rigori calciati rari
+                    -1.5 * row["Amm"] +  # Ammonizioni più accettabili
+                    -4 * row["Esp"]      # Espulsioni gravi
                 )
             elif ruolo == "Cen":  # Centrocampista
                 return (
-                    3 * row["Gf"] +
-                    3 * row["Ass"] +     # Assist molto importanti
-                    2 * row["Rp"] +
-                    1 * row["Rc"] +
-                    -1 * row["Amm"] +
-                    -2 * row["Esp"]
+                    3.5 * row["Gf"] +    # Gol centrocampista buoni
+                    4 * row["Ass"] +     # Assist = specialità centrocampisti
+                    3 * row["Rp"] +      # Rigori importanti
+                    2 * row["Rc"] +      # Rigori calciati frequenti
+                    -1.5 * row["Amm"] +  # Ammonizioni nella media
+                    -3 * row["Esp"]      # Espulsioni problematiche
                 )
-            else:  # Attaccante
+            else:  # Attaccante (Att)
                 return (
-                    2 * row["Gf"] +      # Gol meno pesanti per attaccanti
-                    2 * row["Ass"] +
-                    3 * row["Rp"] +
-                    1 * row["Rc"] +
-                    -1.5 * row["Amm"] +
-                    -3 * row["Esp"]
+                    2.5 * row["Gf"] +    # Gol = dovere degli attaccanti
+                    2.5 * row["Ass"] +   # Assist comunque utili
+                    4 * row["Rp"] +      # Rigori molto importanti per attaccanti
+                    2 * row["Rc"] +      # Rigori calciati frequenti
+                    -2 * row["Amm"] +    # Ammonizioni più pesanti
+                    -3 * row["Esp"]      # Espulsioni problematiche
                 )
         
         df["BonusRaw"] = df.apply(calcola_bonus_ruolo, axis=1)
@@ -109,14 +118,28 @@ if file_quot and file_stat:
         df["FormaRecente"] = np.where(df["FVM M"] > 0, df["Qt.A"] / df["FVM M"], 1.0)
         df["FormaRecente"] = np.clip(df["FormaRecente"], 0.5, 2.0)  # Limitiamo tra 0.5 e 2.0
         
-        # Formula punteggio finale migliorata
-        df["Punteggio"] = (
+        # Formula punteggio finale con scala ottimizzata (0-200)
+        punteggio_base = (
             peso_fvm * df["Perc_FVM_M"] +
             peso_fm * df["Perc_FM"] +
             peso_qta * df["Perc_QTA"] +
             peso_pres * df["Perc_Pres"] +
             peso_bonus * df["BonusNorm"]
-        ) * 100 * df["ContinuitaFactor"] * df["FormaRecente"]
+        )
+        
+        # Scala dinamica per ruolo con valori configurabili
+        df["Punteggio"] = 0
+        scale_ruolo = {"Por": scala_por, "Dif": scala_dif, "Cen": scala_cen, "Att": scala_att}
+        
+        for ruolo in df["R"].unique():
+            mask = df["R"] == ruolo
+            scala_ruolo = scale_ruolo.get(ruolo, 150)  # Default 150 se ruolo non trovato
+            
+            df.loc[mask, "Punteggio"] = (
+                punteggio_base[mask] * scala_ruolo * 
+                df.loc[mask, "ContinuitaFactor"] * 
+                df.loc[mask, "FormaRecente"]
+            )
         
         # Tabs per diverse sezioni
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏆 Classifica", "🔄 Scambi", "📈 Analisi", "🎯 Raccomandazioni", "📊 Statistiche"])
@@ -287,7 +310,55 @@ if file_quot and file_stat:
         st.write("Controlla che i file abbiano il formato corretto e tutte le colonne necessarie.")
 
 else:
-    st.info("👆 Carica entrambi i file per iniziare l'analisi!")
+        with st.expander("🔍 Dettaglio Sistema Punteggio per Ruolo"):
+            st.write("""
+            **📊 Sistema di Punteggio Ruolo-Specifico:**
+            
+            **🥅 PORTIERI (Scala: 80-150)**
+            - Gol: x10 (rarissimi, massimo valore)
+            - Assist: x3 (rari ma preziosi)  
+            - Rigori Parati: x8 (specialità del ruolo)
+            - Ammonizioni: -1 (meno gravi)
+            - Espulsioni: -6 (molto gravi)
+            
+            **🛡️ DIFENSORI (Scala: 100-170)**
+            - Gol: x5 (molto preziosi)
+            - Assist: x3 (importanti)
+            - Rigori: x1 (meno comuni)
+            - Ammonizioni: -1.5 (più accettabili)
+            - Espulsioni: -4 (gravi)
+            
+            **⚽ CENTROCAMPISTI (Scala: 120-190)**
+            - Gol: x3.5 (buoni)
+            - Assist: x4 (specialità del ruolo)
+            - Rigori Parati/Segnati: x3 (importanti)
+            - Rigori Calciati: x2 (frequenti)
+            - Ammonizioni: -1.5 (nella media)
+            
+            **🎯 ATTACCANTI (Scala: 140-200)**
+            - Gol: x2.5 (dovere del ruolo)
+            - Assist: x2.5 (comunque utili)
+            - Rigori Parati/Segnati: x4 (molto importanti)
+            - Rigori Calciati: x2 (frequenti)
+            - Ammonizioni: -2 (più pesanti)
+            
+            **💡 La scala diversa per ruolo riflette:**
+            - Portieri: Meno variabilità nelle prestazioni
+            - Attaccanti: Massima variabilità e impatto
+            - Centrocampisti: Alta variabilità per polivalenza
+            - Difensori: Variabilità media ma bonus alti per gol
+            """)
+            
+            # Mostra distribuzione attuale
+            if 'df' in locals():
+                st.write("**📈 Distribuzione Punteggi Attuali:**")
+                for ruolo in sorted(df["R"].unique()):
+                    df_ruolo = df[df["R"] == ruolo]
+                    st.write(f"**{ruolo}**: Media {df_ruolo['Punteggio'].mean():.1f}, "
+                           f"Min {df_ruolo['Punteggio'].min():.1f}, "
+                           f"Max {df_ruolo['Punteggio'].max():.1f}")
+        
+        st.info("👆 Carica entrambi i file per iniziare l'analisi!")
     
     # Istruzioni
     with st.expander("📋 Istruzioni d'uso"):
