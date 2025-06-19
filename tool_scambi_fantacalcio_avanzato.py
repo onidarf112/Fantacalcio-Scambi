@@ -18,17 +18,16 @@ peso_fvm = st.sidebar.slider("Peso FVM M", 0.0, 1.0, 0.30, step=0.05)
 peso_fm = st.sidebar.slider("Peso Fm", 0.0, 1.0, 0.25, step=0.05)
 peso_qta = st.sidebar.slider("Peso Qt.A", 0.0, 1.0, 0.20, step=0.05)
 peso_pres = st.sidebar.slider("Peso Presenze", 0.0, 1.0, 0.15, step=0.05)
-            # Normalizzazione pesi
-        peso_bonus = st.sidebar.slider("Peso Bonus/Malus", 0.0, 1.0, 0.10, step=0.05)
-        
-        # Configurazione scale per ruolo
-        st.sidebar.subheader("⚖️ Scale Punteggio per Ruolo")
-        scala_por = st.sidebar.slider("Scala Portieri", 80, 150, 120, step=5)
-        scala_dif = st.sidebar.slider("Scala Difensori", 100, 170, 140, step=5)
-        scala_cen = st.sidebar.slider("Scala Centrocampisti", 120, 190, 160, step=5)
-        scala_att = st.sidebar.slider("Scala Attaccanti", 140, 200, 180, step=5)
-        
-        # Normalizzazione pesi
+peso_bonus = st.sidebar.slider("Peso Bonus/Malus", 0.0, 1.0, 0.10, step=0.05)
+
+# Configurazione scale per ruolo
+st.sidebar.subheader("⚖️ Scale Punteggio per Ruolo")
+scala_por = st.sidebar.slider("Scala Portieri", 80, 150, 120, step=5)
+scala_dif = st.sidebar.slider("Scala Difensori", 100, 170, 140, step=5)
+scala_cen = st.sidebar.slider("Scala Centrocampisti", 120, 190, 160, step=5)
+scala_att = st.sidebar.slider("Scala Attaccanti", 140, 200, 180, step=5)
+
+# Normalizzazione pesi
 totale_pesi = peso_fvm + peso_fm + peso_qta + peso_pres + peso_bonus
 if totale_pesi != 1.0:
     st.sidebar.warning(f"⚠️ Totale pesi: {totale_pesi:.2f} (dovrebbe essere 1.0)")
@@ -310,75 +309,75 @@ if file_quot and file_stat:
         st.write("Controlla che i file abbiano il formato corretto e tutte le colonne necessarie.")
 
 else:
-        with st.expander("🔍 Dettaglio Sistema Punteggio per Ruolo"):
-            st.write("""
-            **📊 Sistema di Punteggio Ruolo-Specifico:**
-            
-            **🥅 PORTIERI (Scala: 80-150)**
-            - Gol: x10 (rarissimi, massimo valore)
-            - Assist: x3 (rari ma preziosi)  
-            - Rigori Parati: x8 (specialità del ruolo)
-            - Ammonizioni: -1 (meno gravi)
-            - Espulsioni: -6 (molto gravi)
-            
-            **🛡️ DIFENSORI (Scala: 100-170)**
-            - Gol: x5 (molto preziosi)
-            - Assist: x3 (importanti)
-            - Rigori: x1 (meno comuni)
-            - Ammonizioni: -1.5 (più accettabili)
-            - Espulsioni: -4 (gravi)
-            
-            **⚽ CENTROCAMPISTI (Scala: 120-190)**
-            - Gol: x3.5 (buoni)
-            - Assist: x4 (specialità del ruolo)
-            - Rigori Parati/Segnati: x3 (importanti)
-            - Rigori Calciati: x2 (frequenti)
-            - Ammonizioni: -1.5 (nella media)
-            
-            **🎯 ATTACCANTI (Scala: 140-200)**
-            - Gol: x2.5 (dovere del ruolo)
-            - Assist: x2.5 (comunque utili)
-            - Rigori Parati/Segnati: x4 (molto importanti)
-            - Rigori Calciati: x2 (frequenti)
-            - Ammonizioni: -2 (più pesanti)
-            
-            **💡 La scala diversa per ruolo riflette:**
-            - Portieri: Meno variabilità nelle prestazioni
-            - Attaccanti: Massima variabilità e impatto
-            - Centrocampisti: Alta variabilità per polivalenza
-            - Difensori: Variabilità media ma bonus alti per gol
-            """)
-            
-            # Mostra distribuzione attuale
-            if 'df' in locals():
-                st.write("**📈 Distribuzione Punteggi Attuali:**")
-                for ruolo in sorted(df["R"].unique()):
-                    df_ruolo = df[df["R"] == ruolo]
-                    st.write(f"**{ruolo}**: Media {df_ruolo['Punteggio'].mean():.1f}, "
-                           f"Min {df_ruolo['Punteggio'].min():.1f}, "
-                           f"Max {df_ruolo['Punteggio'].max():.1f}")
-        
-        st.info("👆 Carica entrambi i file per iniziare l'analisi!")
-    
-    # Istruzioni
-    with st.expander("📋 Istruzioni d'uso"):
+    with st.expander("🔍 Dettaglio Sistema Punteggio per Ruolo"):
         st.write("""
-        **Come usare il tool:**
+        **📊 Sistema di Punteggio Ruolo-Specifico:**
         
-        1. **Carica i file Excel** delle quotazioni e statistiche
-        2. **Configura i pesi** nella sidebar per personalizzare la formula
-        3. **Esplora le diverse tab:**
-           - 🏆 **Classifica**: Top giocatori con filtri avanzati
-           - 🔄 **Scambi**: Simula scambi tra squadre
-           - 📈 **Analisi**: Grafici e correlazioni
-           - 🎯 **Raccomandazioni**: Giocatori sottovalutati e in forma
-           - 📊 **Statistiche**: Dati aggregati per ruolo
+        **🥅 PORTIERI (Scala: 80-150)**
+        - Gol: x10 (rarissimi, massimo valore)
+        - Assist: x3 (rari ma preziosi)  
+        - Rigori Parati: x8 (specialità del ruolo)
+        - Ammonizioni: -1 (meno gravi)
+        - Espulsioni: -6 (molto gravi)
         
-        **Novità del sistema migliorato:**
-        - ✅ Punteggi specifici per ruolo
-        - ✅ Fattore continuità basato sulle presenze
-        - ✅ Fattore forma recente
-        - ✅ Analisi sottovalutati
-        - ✅ Grafici interattivi
-        - ✅ Filtri avanzati
+        **🛡️ DIFENSORI (Scala: 100-170)**
+        - Gol: x5 (molto preziosi)
+        - Assist: x3 (importanti)
+        - Rigori: x1 (meno comuni)
+        - Ammonizioni: -1.5 (più accettabili)
+        - Espulsioni: -4 (gravi)
+        
+        **⚽ CENTROCAMPISTI (Scala: 120-190)**
+        - Gol: x3.5 (buoni)
+        - Assist: x4 (specialità del ruolo)
+        - Rigori Parati/Segnati: x3 (importanti)
+        - Rigori Calciati: x2 (frequenti)
+        - Ammonizioni: -1.5 (nella media)
+        
+        **🎯 ATTACCANTI (Scala: 140-200)**
+        - Gol: x2.5 (dovere del ruolo)
+        - Assist: x2.5 (comunque utili)
+        - Rigori Parati/Segnati: x4 (molto importanti)
+        - Rigori Calciati: x2 (frequenti)
+        - Ammonizioni: -2 (più pesanti)
+        
+        **💡 La scala diversa per ruolo riflette:**
+        - Portieri: Meno variabilità nelle prestazioni
+        - Attaccanti: Massima variabilità e impatto
+        - Centrocampisti: Alta variabilità per polivalenza
+        - Difensori: Variabilità media ma bonus alti per gol
         """)
+        
+        # Mostra distribuzione attuale
+        if 'df' in locals():
+            st.write("**📈 Distribuzione Punteggi Attuali:**")
+            for ruolo in sorted(df["R"].unique()):
+                df_ruolo = df[df["R"] == ruolo]
+                st.write(f"**{ruolo}**: Media {df_ruolo['Punteggio'].mean():.1f}, "
+                       f"Min {df_ruolo['Punteggio'].min():.1f}, "
+                       f"Max {df_ruolo['Punteggio'].max():.1f}")
+    
+    st.info("👆 Carica entrambi i file per iniziare l'analisi!")
+
+# Istruzioni
+with st.expander("📋 Istruzioni d'uso"):
+    st.write("""
+    **Come usare il tool:**
+    
+    1. **Carica i file Excel** delle quotazioni e statistiche
+    2. **Configura i pesi** nella sidebar per personalizzare la formula
+    3. **Esplora le diverse tab:**
+       - 🏆 **Classifica**: Top giocatori con filtri avanzati
+       - 🔄 **Scambi**: Simula scambi tra squadre
+       - 📈 **Analisi**: Grafici e correlazioni
+       - 🎯 **Raccomandazioni**: Giocatori sottovalutati e in forma
+       - 📊 **Statistiche**: Dati aggregati per ruolo
+    
+    **Novità del sistema migliorato:**
+    - ✅ Punteggi specifici per ruolo
+    - ✅ Fattore continuità basato sulle presenze
+    - ✅ Fattore forma recente
+    - ✅ Analisi sottovalutati
+    - ✅ Grafici interattivi
+    - ✅ Filtri avanzati
+    """)
