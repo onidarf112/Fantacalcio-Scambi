@@ -116,10 +116,6 @@ if file_quot and file_stat:
         partite_stagione = 25  # Assumendo 25 giornate giocate
         df["ContinuitaFactor"] = np.minimum(df["Pv"] / partite_stagione, 1.0)
         
-        # Fattore forma recente (usando Qt.A vs FVM M come proxy)
-        df["FormaRecente"] = np.where(df["FVM M"] > 0, df["Qt.A"] / df["FVM M"], 1.0)
-        df["FormaRecente"] = np.clip(df["FormaRecente"], 0.5, 2.0)  # Limitiamo tra 0.5 e 2.0
-        
         # Formula punteggio finale con scala ottimizzata (0-200)
         punteggio_base = (
             peso_fvm * df["Perc_FVM_M"] +
@@ -139,8 +135,7 @@ if file_quot and file_stat:
             
             df.loc[mask, "Punteggio"] = (
                 punteggio_base[mask] * scala_ruolo * 
-                df.loc[mask, "ContinuitaFactor"] * 
-                df.loc[mask, "FormaRecente"]
+                df.loc[mask, "ContinuitaFactor"]
             )
         
         # Tabs per diverse sezioni
@@ -166,12 +161,11 @@ if file_quot and file_stat:
             ]
             
             top_100 = df_filtrato.nlargest(100, "Punteggio")[
-                ["Nome", "R", "Squadra", "Punteggio", "FVM M", "Fm", "Qt.A", "Pv", "ContinuitaFactor", "FormaRecente"]
+                ["Nome", "R", "Squadra", "Punteggio", "FVM M", "Fm", "Qt.A", "Pv", "ContinuitaFactor"]
             ]
             top_100_display = top_100.copy()
             top_100_display["Punteggio"] = top_100_display["Punteggio"].round(2)
             top_100_display["ContinuitaFactor"] = top_100_display["ContinuitaFactor"].round(3)
-            top_100_display["FormaRecente"] = top_100_display["FormaRecente"].round(3)
             top_100_display.index = range(1, len(top_100_display) + 1)
             
             st.dataframe(top_100_display, use_container_width=True)
@@ -269,12 +263,6 @@ if file_quot and file_stat:
             
             st.write("**🔍 Top 20 Giocatori Sottovalutati (Miglior rapporto Punteggio/Prezzo):**")
             st.dataframe(sottovalutati.round(3))
-            
-            # Giocatori in forma
-            in_forma = df[df["FormaRecente"] > 1.2].nlargest(20, "Punteggio")[["Nome", "R", "Squadra", "Punteggio", "FormaRecente"]]
-            
-            st.write("**🔥 Top 20 Giocatori in Forma:**")
-            st.dataframe(in_forma.round(3))
         
         with tab5:
             st.subheader("📊 Statistiche Avanzate")
@@ -373,13 +361,12 @@ with st.expander("📋 Istruzioni d'uso"):
        - 🏆 **Classifica**: Top giocatori con filtri avanzati
        - 🔄 **Scambi**: Simula scambi tra squadre
        - 📈 **Analisi**: Grafici e correlazioni
-       - 🎯 **Raccomandazioni**: Giocatori sottovalutati e in forma
+       - 🎯 **Raccomandazioni**: Giocatori sottovalutati
        - 📊 **Statistiche**: Dati aggregati per ruolo
     
-    **Novità del sistema migliorato:**
+    **Caratteristiche del sistema:**
     - ✅ Punteggi specifici per ruolo
     - ✅ Fattore continuità basato sulle presenze
-    - ✅ Fattore forma recente
     - ✅ Analisi sottovalutati
     - ✅ Grafici interattivi
     - ✅ Filtri avanzati
