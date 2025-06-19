@@ -1,28 +1,51 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from scipy.stats import percentileofscore
+import plotly.express as px
+import plotly.graph_objects as go
 
-st.set_page_config(page_title="Fantacalcio - Scambi Avanzati", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi Avanzati")
+st.set_page_config(page_title="Fantacalcio - Scambi Avanzati Pro", layout="wide")
+st.title("⚽ Fantacalcio - Tool Scambi Avanzati Pro")
+
+# Sidebar per configurazioni
+st.sidebar.header("⚙️ Configurazioni")
+soglia_max = st.sidebar.slider("🎯 Soglia Massima (%) Differenza", 0.0, 50.0, 10.0, step=0.5)
+
+# Pesi personalizzabili
+st.sidebar.subheader("📊 Pesi Formula Punteggio")
+peso_fvm = st.sidebar.slider("Peso FVM M", 0.0, 1.0, 0.30, step=0.05)
+peso_fm = st.sidebar.slider("Peso Fm", 0.0, 1.0, 0.25, step=0.05)
+peso_qta = st.sidebar.slider("Peso Qt.A", 0.0, 1.0, 0.20, step=0.05)
+peso_pres = st.sidebar.slider("Peso Presenze", 0.0, 1.0, 0.15, step=0.05)
+peso_bonus = st.sidebar.slider("Peso Bonus/Malus", 0.0, 1.0, 0.10, step=0.05)
+
+# Normalizzazione pesi
+totale_pesi = peso_fvm + peso_fm + peso_qta + peso_pres + peso_bonus
+if totale_pesi != 1.0:
+    st.sidebar.warning(f"⚠️ Totale pesi: {totale_pesi:.2f} (dovrebbe essere 1.0)")
 
 # Caricamento file
-file_quot = st.file_uploader("Carica il file delle Quotazioni (.xlsx)", type="xlsx")
-file_stat = st.file_uploader("Carica il file delle Statistiche (.xlsx)", type="xlsx")
-
-soglia_max = st.slider("🎯 Soglia Massima (%) di Differenza Accettabile", 0.0, 50.0, 10.0, step=0.5)
+st.header("📁 Caricamento Dati")
+col1, col2 = st.columns(2)
+with col1:
+    file_quot = st.file_uploader("Carica Quotazioni (.xlsx)", type="xlsx")
+with col2:
+    file_stat = st.file_uploader("Carica Statistiche (.xlsx)", type="xlsx")
 
 if file_quot and file_stat:
     try:
+        # Lettura dati
         df_quot = pd.read_excel(file_quot, header=1)
         df_stat = pd.read_excel(file_stat, header=1)
         df = pd.merge(df_quot, df_stat, on="Nome", how="inner")
         
-        # Controllo colonne richieste
-        colonne_necessarie = ["FVM M", "Fm", "Qt.A", "Pv", "Gf", "Ass", "Amm", "Esp", "Rp", "Rc"]
-        for col in colonne_necessarie:
-            if col not in df.columns:
-                st.error(f"Colonna mancante nel file: {col}")
-                st.stop()
+        # Controllo colonne
+        colonne_necessarie = ["FVM M", "Fm", "Qt.A", "Pv", "Gf", "Ass", "Amm", "Esp", "Rp", "Rc", "R"]
+        colonne_mancanti = [col for col in colonne_necessarie if col not in df.columns]
+        if colonne_mancanti:
+            st.error(f"Colonne mancanti: {', '.join(colonne_mancanti)}")
+            st.stop()
         
         # Calcolo percentili
         df["Perc_FVM_M"] = df["FVM M"].rank(pct=True)
@@ -30,66 +53,261 @@ if file_quot and file_stat:
         df["Perc_QTA"] = df["Qt.A"].rank(pct=True)
         df["Perc_Pres"] = df["Pv"].rank(pct=True)
         
-        # Bonus/malus
-        bonus_raw = (
-            3 * df["Gf"] +
-            1 * df["Ass"] +
-            -0.5 * df["Amm"] +
-            -1 * df["Esp"] +
-            3 * df["Rp"] +
-            1 * df["Rc"]
-        )
-        bonus_norm = (bonus_raw - bonus_raw.min()) / (bonus_raw.max() - bonus_raw.min())
-        df["BonusMalus"] = bonus_norm.fillna(0)
+        # Sistema Bonus/Malus migliorato
+        def calcola_bonus_ruolo(row):
+            ruolo = row["R"]
+            if ruolo == "Por":  # Portiere
+                return (
+                    8 * row["Gf"] +      # Gol portiere molto rari
+                    2 * row["Ass"] +
+                    6 * row["Rp"] +      # Rigori parati importantissimi
+                    -2 * row["Amm"] +
+                    -5 * row["Esp"]
+                )
+            elif ruolo == "Dif":  # Difensore
+                return (
+                    4 * row["Gf"] +
+                    2 * row["Ass"] +
+                    -1 * row["Amm"] +
+                    -3 * row["Esp"] +
+                    1 * row["Rc"]
+                )
+            elif ruolo == "Cen":  # Centrocampista
+                return (
+                    3 * row["Gf"] +
+                    3 * row["Ass"] +     # Assist molto importanti
+                    2 * row["Rp"] +
+                    1 * row["Rc"] +
+                    -1 * row["Amm"] +
+                    -2 * row["Esp"]
+                )
+            else:  # Attaccante
+                return (
+                    2 * row["Gf"] +      # Gol meno pesanti per attaccanti
+                    2 * row["Ass"] +
+                    3 * row["Rp"] +
+                    1 * row["Rc"] +
+                    -1.5 * row["Amm"] +
+                    -3 * row["Esp"]
+                )
         
-        # Formula combinata
+        df["BonusRaw"] = df.apply(calcola_bonus_ruolo, axis=1)
+        
+        # Normalizzazione bonus per ruolo
+        df["BonusNorm"] = 0
+        for ruolo in df["R"].unique():
+            mask = df["R"] == ruolo
+            bonus_ruolo = df.loc[mask, "BonusRaw"]
+            if bonus_ruolo.max() != bonus_ruolo.min():
+                df.loc[mask, "BonusNorm"] = (bonus_ruolo - bonus_ruolo.min()) / (bonus_ruolo.max() - bonus_ruolo.min())
+        
+        # Fattore continuità (presenze/partite totali della stagione)
+        partite_stagione = 25  # Assumendo 25 giornate giocate
+        df["ContinuitaFactor"] = np.minimum(df["Pv"] / partite_stagione, 1.0)
+        
+        # Fattore forma recente (usando Qt.A vs FVM M come proxy)
+        df["FormaRecente"] = np.where(df["FVM M"] > 0, df["Qt.A"] / df["FVM M"], 1.0)
+        df["FormaRecente"] = np.clip(df["FormaRecente"], 0.5, 2.0)  # Limitiamo tra 0.5 e 2.0
+        
+        # Formula punteggio finale migliorata
         df["Punteggio"] = (
-            0.25 * df["Perc_FVM_M"] +
-            0.35 * df["Perc_FM"] +
-            0.20 * df["Perc_QTA"] +
-            0.10 * df["Perc_Pres"] +
-            0.10 * df["BonusMalus"]
-        ) * 150
+            peso_fvm * df["Perc_FVM_M"] +
+            peso_fm * df["Perc_FM"] +
+            peso_qta * df["Perc_QTA"] +
+            peso_pres * df["Perc_Pres"] +
+            peso_bonus * df["BonusNorm"]
+        ) * 100 * df["ContinuitaFactor"] * df["FormaRecente"]
         
-        # Sezione per mostrare i 30 migliori punteggi
-        st.subheader("🏆 Top 100 Migliori Punteggi")
-        top_100 = df.nlargest(100, "Punteggio")[["Nome", "Punteggio", "FVM M", "Fm", "Qt.A", "Pv"]]
-        top_100_display = top_100.copy()
-        top_100_display["Punteggio"] = top_100_display["Punteggio"].round(2)
-        top_100_display.index = range(1, len(top_100_display) + 1)
-        st.dataframe(top_100_display, use_container_width=True)
+        # Tabs per diverse sezioni
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏆 Classifica", "🔄 Scambi", "📈 Analisi", "🎯 Raccomandazioni", "📊 Statistiche"])
         
-        # Scelta giocatori per lo scambio
-        nomi_giocatori = df["Nome"].sort_values().tolist()
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("🔵 Squadra A")
-            squadra_a = [st.selectbox(f"A{i+1}", [""] + nomi_giocatori, key=f"A{i}") for i in range(7)]
-        
-        with col2:
-            st.subheader("🔴 Squadra B")
-            squadra_b = [st.selectbox(f"B{i+1}", [""] + nomi_giocatori, key=f"B{i}") for i in range(7)]
-        
-        squadra_a = [g for g in squadra_a if g]
-        squadra_b = [g for g in squadra_b if g]
-        
-        if squadra_a and squadra_b:
-            tot_a = df[df["Nome"].isin(squadra_a)]["Punteggio"].sum()
-            tot_b = df[df["Nome"].isin(squadra_b)]["Punteggio"].sum()
-            diff = abs(tot_a - tot_b)
-            media = (tot_a + tot_b) / 2
-            perc_diff = (diff / media) * 100 if media != 0 else 0
+        with tab1:
+            st.subheader("🏆 Top 100 Migliori Punteggi")
             
-            st.subheader("📊 Risultato dello Scambio")
-            st.write(f"**Totale Squadra A**: {tot_a:.2f}")
-            st.write(f"**Totale Squadra B**: {tot_b:.2f}")
-            st.write(f"**Differenza Percentuale**: {perc_diff:.2f}%")
+            # Filtri
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                ruoli_selezionati = st.multiselect("Filtra per Ruolo", df["R"].unique(), default=df["R"].unique())
+            with col2:
+                squadre_selezionate = st.multiselect("Filtra per Squadra", df["Squadra"].unique(), default=df["Squadra"].unique())
+            with col3:
+                min_presenze = st.slider("Presenze minime", 0, int(df["Pv"].max()), 0)
             
-            if perc_diff <= soglia_max:
-                st.success("✅ Scambio VALIDO")
-            else:
-                st.error("❌ Scambio NON valido (fuori soglia)")
+            # Applicazione filtri
+            df_filtrato = df[
+                (df["R"].isin(ruoli_selezionati)) &
+                (df["Squadra"].isin(squadre_selezionate)) &
+                (df["Pv"] >= min_presenze)
+            ]
+            
+            top_100 = df_filtrato.nlargest(100, "Punteggio")[
+                ["Nome", "R", "Squadra", "Punteggio", "FVM M", "Fm", "Qt.A", "Pv", "ContinuitaFactor", "FormaRecente"]
+            ]
+            top_100_display = top_100.copy()
+            top_100_display["Punteggio"] = top_100_display["Punteggio"].round(2)
+            top_100_display["ContinuitaFactor"] = top_100_display["ContinuitaFactor"].round(3)
+            top_100_display["FormaRecente"] = top_100_display["FormaRecente"].round(3)
+            top_100_display.index = range(1, len(top_100_display) + 1)
+            
+            st.dataframe(top_100_display, use_container_width=True)
+        
+        with tab2:
+            st.subheader("🔄 Simulatore Scambi")
+            
+            # Scelta giocatori
+            nomi_giocatori = df["Nome"].sort_values().tolist()
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("🔵 Squadra A")
+                squadra_a = []
+                for i in range(7):
+                    giocatore = st.selectbox(f"A{i+1}", [""] + nomi_giocatori, key=f"A{i}")
+                    if giocatore:
+                        squadra_a.append(giocatore)
+            
+            with col2:
+                st.subheader("🔴 Squadra B")
+                squadra_b = []
+                for i in range(7):
+                    giocatore = st.selectbox(f"B{i+1}", [""] + nomi_giocatori, key=f"B{i}")
+                    if giocatore:
+                        squadra_b.append(giocatore)
+            
+            if squadra_a and squadra_b:
+                # Calcoli scambio
+                df_a = df[df["Nome"].isin(squadra_a)]
+                df_b = df[df["Nome"].isin(squadra_b)]
                 
+                tot_a = df_a["Punteggio"].sum()
+                tot_b = df_b["Punteggio"].sum()
+                diff = abs(tot_a - tot_b)
+                media = (tot_a + tot_b) / 2
+                perc_diff = (diff / media) * 100 if media != 0 else 0
+                
+                # Risultati
+                st.subheader("📊 Risultato dello Scambio")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Totale Squadra A", f"{tot_a:.2f}")
+                    st.metric("Media FVM Squadra A", f"{df_a['FVM M'].mean():.2f}")
+                
+                with col2:
+                    st.metric("Totale Squadra B", f"{tot_b:.2f}")
+                    st.metric("Media FVM Squadra B", f"{df_b['FVM M'].mean():.2f}")
+                
+                with col3:
+                    st.metric("Differenza %", f"{perc_diff:.2f}%")
+                    if perc_diff <= soglia_max:
+                        st.success("✅ Scambio VALIDO")
+                    else:
+                        st.error("❌ Scambio NON valido")
+                
+                # Dettaglio giocatori
+                st.subheader("👥 Dettaglio Giocatori")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Squadra A:**")
+                    st.dataframe(df_a[["Nome", "R", "Punteggio", "FVM M", "Fm"]].round(2))
+                
+                with col2:
+                    st.write("**Squadra B:**")
+                    st.dataframe(df_b[["Nome", "R", "Punteggio", "FVM M", "Fm"]].round(2))
+        
+        with tab3:
+            st.subheader("📈 Analisi Avanzata")
+            
+            # Grafico distribuzione punteggi per ruolo
+            fig_ruolo = px.box(df, x="R", y="Punteggio", title="Distribuzione Punteggi per Ruolo")
+            st.plotly_chart(fig_ruolo, use_container_width=True)
+            
+            # Correlazione tra metriche
+            col1, col2 = st.columns(2)
+            with col1:
+                fig_corr1 = px.scatter(df, x="FVM M", y="Punteggio", color="R", 
+                                     title="Punteggio vs FVM M", hover_data=["Nome"])
+                st.plotly_chart(fig_corr1, use_container_width=True)
+            
+            with col2:
+                fig_corr2 = px.scatter(df, x="Fm", y="Punteggio", color="R",
+                                     title="Punteggio vs Media Voto", hover_data=["Nome"])
+                st.plotly_chart(fig_corr2, use_container_width=True)
+        
+        with tab4:
+            st.subheader("🎯 Raccomandazioni Intelligenti")
+            
+            # Giocatori sottovalutati (alto punteggio, basso FVM)
+            df["Rapporto_Valore"] = df["Punteggio"] / df["FVM M"]
+            sottovalutati = df.nlargest(20, "Rapporto_Valore")[["Nome", "R", "Squadra", "Punteggio", "FVM M", "Rapporto_Valore"]]
+            
+            st.write("**🔍 Top 20 Giocatori Sottovalutati (Miglior rapporto Punteggio/Prezzo):**")
+            st.dataframe(sottovalutati.round(3))
+            
+            # Giocatori in forma
+            in_forma = df[df["FormaRecente"] > 1.2].nlargest(20, "Punteggio")[["Nome", "R", "Squadra", "Punteggio", "FormaRecente"]]
+            
+            st.write("**🔥 Top 20 Giocatori in Forma:**")
+            st.dataframe(in_forma.round(3))
+        
+        with tab5:
+            st.subheader("📊 Statistiche Avanzate")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Totale Giocatori", len(df))
+                st.metric("Media Punteggio", f"{df['Punteggio'].mean():.2f}")
+            
+            with col2:
+                st.metric("Punteggio Massimo", f"{df['Punteggio'].max():.2f}")
+                st.metric("Punteggio Minimo", f"{df['Punteggio'].min():.2f}")
+            
+            with col3:
+                giocatore_top = df.loc[df['Punteggio'].idxmax(), 'Nome']
+                st.metric("Miglior Giocatore", giocatore_top)
+                st.metric("Squadre Totali", df['Squadra'].nunique())
+            
+            with col4:
+                st.metric("Portieri", len(df[df['R'] == 'Por']))
+                st.metric("Giocatori Movimento", len(df[df['R'] != 'Por']))
+            
+            # Statistiche per ruolo
+            st.write("**Statistiche per Ruolo:**")
+            stats_ruolo = df.groupby('R').agg({
+                'Punteggio': ['count', 'mean', 'std', 'min', 'max'],
+                'FVM M': 'mean',
+                'Fm': 'mean'
+            }).round(2)
+            st.dataframe(stats_ruolo)
+            
     except Exception as e:
-        st.error(f"Errore durante il caricamento o l'elaborazione: {e}") 
+        st.error(f"Errore durante l'elaborazione: {e}")
+        st.write("Controlla che i file abbiano il formato corretto e tutte le colonne necessarie.")
+
+else:
+    st.info("👆 Carica entrambi i file per iniziare l'analisi!")
+    
+    # Istruzioni
+    with st.expander("📋 Istruzioni d'uso"):
+        st.write("""
+        **Come usare il tool:**
+        
+        1. **Carica i file Excel** delle quotazioni e statistiche
+        2. **Configura i pesi** nella sidebar per personalizzare la formula
+        3. **Esplora le diverse tab:**
+           - 🏆 **Classifica**: Top giocatori con filtri avanzati
+           - 🔄 **Scambi**: Simula scambi tra squadre
+           - 📈 **Analisi**: Grafici e correlazioni
+           - 🎯 **Raccomandazioni**: Giocatori sottovalutati e in forma
+           - 📊 **Statistiche**: Dati aggregati per ruolo
+        
+        **Novità del sistema migliorato:**
+        - ✅ Punteggi specifici per ruolo
+        - ✅ Fattore continuità basato sulle presenze
+        - ✅ Fattore forma recente
+        - ✅ Analisi sottovalutati
+        - ✅ Grafici interattivi
+        - ✅ Filtri avanzati
+        """)
