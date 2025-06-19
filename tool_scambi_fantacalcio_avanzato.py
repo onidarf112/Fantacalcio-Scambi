@@ -5,12 +5,22 @@ from scipy.stats import percentileofscore
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Fantacalcio - Scambi Avanzati ", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi Avanzati by Onidarf")
+st.set_page_config(page_title="Fantacalcio - Scambi Avanzati Pro", layout="wide")
+st.title("⚽ Fantacalcio - Tool Scambi Avanzati Pro")
 
 # Sidebar per configurazioni
 st.sidebar.header("⚙️ Configurazioni")
-soglia_max = st.sidebar.slider("🎯 Soglia Massima (%) Differenza", 0.0, 50.0, 10.0, step=0.5)
+
+# Configurazione soglia scambi
+st.sidebar.subheader("🔄 Configurazione Scambi")
+soglia_max = st.sidebar.number_input(
+    "🎯 Soglia Massima (%) Differenza", 
+    min_value=0.0, 
+    max_value=100.0, 
+    value=10.0, 
+    step=0.5,
+    help="Differenza percentuale massima accettabile tra le squadre per considerare lo scambio valido"
+)
 
 # Pesi personalizzabili
 st.sidebar.subheader("📊 Pesi Formula Punteggio")
