@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -124,11 +123,24 @@ def calcola_bonus_ruolo(row):
         return 10 * row["Gf"] + 3 * row["Ass"] + 8 * row["Rp"] - 1 * row["Amm"] - 6 * row["Esp"]
     elif ruolo == "Dif":
         return 5 * row["Gf"] + 3 * row["Ass"] + 1 * row["Rp"] + 0.5 * row["Rc"] - 1.5 * row["Amm"] - 4 * row["Esp"]
-    elif ruolo == "Cen":  # ⚠️ Modificato: Gol 4, Assist 3
+    elif ruolo == "Cen":
         return 4 * row["Gf"] + 3 * row["Ass"] + 3 * row["Rp"] + 2 * row["Rc"] - 1.5 * row["Amm"] - 3 * row["Esp"]
     else:
         return 2.5 * row["Gf"] + 2.5 * row["Ass"] + 4 * row["Rp"] + 2 * row["Rc"] - 2 * row["Amm"] - 3 * row["Esp"]
 
-# Quando calcoli i punteggi normalizzati percentile:
-# df.loc[mask, "Punteggio"] = 50 + (percentili * 950)
-# (per avere una scala finale da 50 a 1000)
+# Sezione ANALISI con scala aggiornata per grafici
+with st.expander("📈 Analisi Avanzata"):
+    if 'df' in locals():
+        st.subheader("Distribuzione Punteggi per Ruolo")
+        fig_ruolo = px.box(df, x="R", y="Punteggio", title="Distribuzione Punteggi per Ruolo", range_y=[50, 1000])
+        st.plotly_chart(fig_ruolo, use_container_width=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_corr1 = px.scatter(df, x="FVM M", y="Punteggio", color="R",
+                                   title="Punteggio vs FVM M", hover_data=["Nome"], range_y=[50, 1000])
+            st.plotly_chart(fig_corr1, use_container_width=True)
+        with col2:
+            fig_corr2 = px.scatter(df, x="Fm", y="Punteggio", color="R",
+                                   title="Punteggio vs Media Voto", hover_data=["Nome"], range_y=[50, 1000])
+            st.plotly_chart(fig_corr2, use_container_width=True)
