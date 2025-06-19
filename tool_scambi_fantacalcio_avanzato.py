@@ -5,7 +5,7 @@ from scipy.stats import percentileofscore
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Fantacalcio - Scambi Avanzati Pro", layout="wide")
+st.set_page_config(page_title="Fantacalcio - Scambi Avanzati by Onidarf ", layout="wide")
 st.title("⚽ Fantacalcio - Tool Scambi Avanzati Pro")
 
 # Sidebar per configurazioni
