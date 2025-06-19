@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Fantacalcio - Scambi Avanzati by Onidarf ", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi Avanzati by Onidarf")
+st.title("⚽ Fantacalcio - Tool Scambi Avanzati Pro")
 
 # Sidebar per configurazioni
 st.sidebar.header("⚙️ Configurazioni")
@@ -182,6 +182,26 @@ if file_quot and file_stat:
         
         with tab2:
             st.subheader("🔄 Simulatore Scambi")
+            
+            # Inizializza lo stato della sessione per il reset
+            if 'reset_scambi' not in st.session_state:
+                st.session_state.reset_scambi = False
+            
+            # Tasto Reset
+            col_reset1, col_reset2, col_reset3 = st.columns([1, 1, 1])
+            with col_reset2:
+                if st.button("🗑️ Reset Selezioni", type="secondary", use_container_width=True):
+                    st.session_state.reset_scambi = True
+                    st.rerun()
+            
+            # Controlla se è stato premuto il reset
+            if st.session_state.reset_scambi:
+                # Reset dei valori nel session state
+                keys_to_reset = [f"A{i}" for i in range(7)] + [f"B{i}" for i in range(7)]
+                for key in keys_to_reset:
+                    if key in st.session_state:
+                        st.session_state[key] = ""
+                st.session_state.reset_scambi = False
             
             # Scelta giocatori
             nomi_giocatori = df["Nome"].sort_values().tolist()
@@ -369,7 +389,7 @@ with st.expander("📋 Istruzioni d'uso"):
     2. **Configura i pesi** nella sidebar per personalizzare la formula
     3. **Esplora le diverse tab:**
        - 🏆 **Classifica**: Top giocatori con filtri avanzati
-       - 🔄 **Scambi**: Simula scambi tra squadre
+       - 🔄 **Scambi**: Simula scambi tra squadre (con tasto Reset!)
        - 📈 **Analisi**: Grafici e correlazioni
        - 🎯 **Raccomandazioni**: Giocatori sottovalutati
        - 📊 **Statistiche**: Dati aggregati per ruolo
@@ -380,4 +400,5 @@ with st.expander("📋 Istruzioni d'uso"):
     - ✅ Analisi sottovalutati
     - ✅ Grafici interattivi
     - ✅ Filtri avanzati
+    - ✅ Reset selezioni scambi
     """)
