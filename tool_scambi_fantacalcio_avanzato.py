@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -22,6 +23,28 @@ soglia_max = st.sidebar.number_input(
     help="Differenza percentuale massima accettabile tra le squadre per considerare lo scambio valido"
 )
 
+# NUOVE OPZIONI PER COMPARABILITÀ
+st.sidebar.subheader("🎯 Comparabilità Punteggi tra Ruoli")
+usa_percentile_ruolo = st.sidebar.checkbox(
+    "📊 Normalizzazione Percentile per Ruolo",
+    value=False,
+    help="Normalizza i punteggi rispetto al ruolo (top portiere = top attaccante)"
+)
+
+usa_fattore_impatto = st.sidebar.checkbox(
+    "⚡ Fattore Impatto Ruolo",
+    value=False,
+    help="Applica fattori di correzione basati sull'impatto del ruolo nel gioco"
+)
+
+# Fattori impatto ruolo (solo se abilitato)
+if usa_fattore_impatto:
+    st.sidebar.write("**Fattori Impatto Ruolo:**")
+    fattore_por = st.sidebar.slider("Impatto Portieri", 0.8, 1.2, 0.9, step=0.05)
+    fattore_dif = st.sidebar.slider("Impatto Difensori", 0.8, 1.2, 0.95, step=0.05)
+    fattore_cen = st.sidebar.slider("Impatto Centrocampisti", 0.8, 1.2, 1.1, step=0.05)
+    fattore_att = st.sidebar.slider("Impatto Attaccanti", 0.8, 1.2, 1.15, step=0.05)
+
 # Pesi personalizzabili
 st.sidebar.subheader("📊 Pesi Formula Punteggio")
 peso_fvm = st.sidebar.slider("Peso FVM M", 0.0, 1.0, 0.30, step=0.05)
@@ -30,12 +53,13 @@ peso_qta = st.sidebar.slider("Peso Qt.A", 0.0, 1.0, 0.20, step=0.05)
 peso_pres = st.sidebar.slider("Peso Presenze", 0.0, 1.0, 0.15, step=0.05)
 peso_bonus = st.sidebar.slider("Peso Bonus/Malus", 0.0, 1.0, 0.10, step=0.05)
 
-# Configurazione scale per ruolo
-st.sidebar.subheader("⚖️ Scale Punteggio per Ruolo")
-scala_por = st.sidebar.slider("Scala Portieri", 80, 150, 120, step=5)
-scala_dif = st.sidebar.slider("Scala Difensori", 100, 170, 140, step=5)
-scala_cen = st.sidebar.slider("Scala Centrocampisti", 120, 190, 160, step=5)
-scala_att = st.sidebar.slider("Scala Attaccanti", 140, 200, 180, step=5)
+# Configurazione scale per ruolo (solo se non si usa percentile)
+if not usa_percentile_ruolo:
+    st.sidebar.subheader("⚖️ Scale Punteggio per Ruolo")
+    scala_por = st.sidebar.slider("Scala Portieri", 80, 150, 120, step=5)
+    scala_dif = st.sidebar.slider("Scala Difensori", 100, 170, 140, step=5)
+    scala_cen = st.sidebar.slider("Scala Centrocampisti", 120, 190, 160, step=5)
+    scala_att = st.sidebar.slider("Scala Attaccanti", 140, 200, 180, step=5)
 
 # Normalizzazione pesi
 totale_pesi = peso_fvm + peso_fm + peso_qta + peso_pres + peso_bonus
@@ -126,7 +150,7 @@ if file_quot and file_stat:
         partite_stagione = 25  # Assumendo 25 giornate giocate
         df["ContinuitaFactor"] = np.minimum(df["Pv"] / partite_stagione, 1.0)
         
-        # Formula punteggio finale con scala ottimizzata (0-200)
+        # Formula punteggio base
         punteggio_base = (
             peso_fvm * df["Perc_FVM_M"] +
             peso_fm * df["Perc_FM"] +
@@ -135,24 +159,58 @@ if file_quot and file_stat:
             peso_bonus * df["BonusNorm"]
         )
         
-        # Scala dinamica per ruolo con valori configurabili
+        # NUOVO: Calcolo del punteggio finale con opzioni comparabilità
         df["Punteggio"] = 0
-        scale_ruolo = {"Por": scala_por, "Dif": scala_dif, "Cen": scala_cen, "Att": scala_att}
         
-        for ruolo in df["R"].unique():
-            mask = df["R"] == ruolo
-            scala_ruolo = scale_ruolo.get(ruolo, 150)  # Default 150 se ruolo non trovato
+        if usa_percentile_ruolo:
+            # METODO 1: Normalizzazione percentile per ruolo
+            st.info("🎯 Usando normalizzazione percentile per ruolo - I punteggi sono ora comparabili tra ruoli diversi!")
             
-            df.loc[mask, "Punteggio"] = (
-                punteggio_base[mask] * scala_ruolo * 
-                df.loc[mask, "ContinuitaFactor"]
-            )
+            for ruolo in df["R"].unique():
+                mask = df["R"] == ruolo
+                punteggio_ruolo = punteggio_base[mask] * df.loc[mask, "ContinuitaFactor"]
+                
+                # Normalizzazione percentile (0-100)
+                if len(punteggio_ruolo) > 1:
+                    percentili = punteggio_ruolo.rank(pct=True)
+                    # Scala finale 50-200 per tutti i ruoli
+                    df.loc[mask, "Punteggio"] = 50 + (percentili * 150)
+                else:
+                    df.loc[mask, "Punteggio"] = 125  # Valore medio se solo 1 giocatore
+        else:
+            # METODO CLASSICO: Scale diverse per ruolo
+            scale_ruolo = {"Por": scala_por, "Dif": scala_dif, "Cen": scala_cen, "Att": scala_att}
+            
+            for ruolo in df["R"].unique():
+                mask = df["R"] == ruolo
+                scala_ruolo = scale_ruolo.get(ruolo, 150)
+                
+                df.loc[mask, "Punteggio"] = (
+                    punteggio_base[mask] * scala_ruolo * 
+                    df.loc[mask, "ContinuitaFactor"]
+                )
+        
+        # OPZIONALE: Applicazione fattore impatto ruolo
+        if usa_fattore_impatto:
+            st.info("⚡ Applicando fattore impatto ruolo - I ruoli più impattanti hanno bonus aggiuntivo!")
+            fattori_impatto = {"Por": fattore_por, "Dif": fattore_dif, "Cen": fattore_cen, "Att": fattore_att}
+            
+            for ruolo in df["R"].unique():
+                mask = df["R"] == ruolo
+                fattore = fattori_impatto.get(ruolo, 1.0)
+                df.loc[mask, "Punteggio"] = df.loc[mask, "Punteggio"] * fattore
         
         # Tabs per diverse sezioni
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏆 Classifica", "🔄 Scambi", "📈 Analisi", "🎯 Raccomandazioni", "📊 Statistiche"])
         
         with tab1:
             st.subheader("🏆 Top 100 Migliori Punteggi")
+            
+            # Mostra modalità attiva
+            if usa_percentile_ruolo:
+                st.success("🎯 **Modalità Percentile Attiva**: I punteggi sono comparabili tra ruoli diversi!")
+            if usa_fattore_impatto:
+                st.success("⚡ **Fattore Impatto Attivo**: Ruoli più impattanti hanno bonus aggiuntivo!")
             
             # Filtri
             col1, col2, col3 = st.columns(3)
@@ -179,9 +237,28 @@ if file_quot and file_stat:
             top_100_display.index = range(1, len(top_100_display) + 1)
             
             st.dataframe(top_100_display, use_container_width=True)
+            
+            # Mostra distribuzione per ruolo
+            if usa_percentile_ruolo:
+                st.subheader("📊 Distribuzione Punteggi per Ruolo (Normalizzati)")
+                col1, col2, col3, col4 = st.columns(4)
+                for i, ruolo in enumerate(sorted(df["R"].unique())):
+                    df_ruolo = df[df["R"] == ruolo]
+                    with [col1, col2, col3, col4][i % 4]:
+                        st.metric(
+                            f"{ruolo}",
+                            f"Media: {df_ruolo['Punteggio'].mean():.1f}",
+                            f"Range: {df_ruolo['Punteggio'].min():.1f}-{df_ruolo['Punteggio'].max():.1f}"
+                        )
         
         with tab2:
             st.subheader("🔄 Simulatore Scambi")
+            
+            # Mostra modalità attiva
+            if usa_percentile_ruolo:
+                st.success("🎯 **Modalità Percentile Attiva**: Ora puoi confrontare direttamente portieri con attaccanti!")
+            if usa_fattore_impatto:
+                st.info("⚡ **Fattore Impatto Attivo**: Considerato l'impatto del ruolo negli scambi!")
             
             # Inizializza lo stato della sessione per il reset
             if 'reset_scambi' not in st.session_state:
@@ -259,17 +336,23 @@ if file_quot and file_stat:
                 
                 with col1:
                     st.write("**Squadra A:**")
-                    st.dataframe(df_a[["Nome", "R", "Punteggio", "FVM M", "Fm"]].round(2))
+                    display_a = df_a[["Nome", "R", "Punteggio", "FVM M", "Fm"]].copy()
+                    display_a["Punteggio"] = display_a["Punteggio"].round(2)
+                    st.dataframe(display_a)
                 
                 with col2:
                     st.write("**Squadra B:**")
-                    st.dataframe(df_b[["Nome", "R", "Punteggio", "FVM M", "Fm"]].round(2))
+                    display_b = df_b[["Nome", "R", "Punteggio", "FVM M", "Fm"]].copy()
+                    display_b["Punteggio"] = display_b["Punteggio"].round(2)
+                    st.dataframe(display_b)
         
         with tab3:
             st.subheader("📈 Analisi Avanzata")
             
             # Grafico distribuzione punteggi per ruolo
             fig_ruolo = px.box(df, x="R", y="Punteggio", title="Distribuzione Punteggi per Ruolo")
+            if usa_percentile_ruolo:
+                fig_ruolo.update_layout(title="Distribuzione Punteggi per Ruolo (Normalizzati - Comparabili)")
             st.plotly_chart(fig_ruolo, use_container_width=True)
             
             # Correlazione tra metriche
@@ -292,7 +375,13 @@ if file_quot and file_stat:
             sottovalutati = df.nlargest(20, "Rapporto_Valore")[["Nome", "R", "Squadra", "Punteggio", "FVM M", "Rapporto_Valore"]]
             
             st.write("**🔍 Top 20 Giocatori Sottovalutati (Miglior rapporto Punteggio/Prezzo):**")
-            st.dataframe(sottovalutati.round(3))
+            if usa_percentile_ruolo:
+                st.info("💡 Con normalizzazione percentile, puoi confrontare direttamente sottovalutati di ruoli diversi!")
+            
+            sottovalutati_display = sottovalutati.copy()
+            sottovalutati_display["Punteggio"] = sottovalutati_display["Punteggio"].round(2)
+            sottovalutati_display["Rapporto_Valore"] = sottovalutati_display["Rapporto_Valore"].round(3)
+            st.dataframe(sottovalutati_display)
         
         with tab5:
             st.subheader("📊 Statistiche Avanzate")
@@ -325,58 +414,85 @@ if file_quot and file_stat:
             }).round(2)
             st.dataframe(stats_ruolo)
             
+            # Mostra comparabilità se attiva
+            if usa_percentile_ruolo:
+                st.subheader("🎯 Analisi Comparabilità tra Ruoli")
+                st.write("**Range punteggi per ruolo (dovrebbero essere simili):**")
+                
+                comparabilita_stats = []
+                for ruolo in sorted(df["R"].unique()):
+                    df_ruolo = df[df["R"] == ruolo]
+                    comparabilita_stats.append({
+                        "Ruolo": ruolo,
+                        "Min": df_ruolo["Punteggio"].min(),
+                        "Max": df_ruolo["Punteggio"].max(),
+                        "Media": df_ruolo["Punteggio"].mean(),
+                        "Range": df_ruolo["Punteggio"].max() - df_ruolo["Punteggio"].min()
+                    })
+                
+                df_comp = pd.DataFrame(comparabilita_stats)
+                st.dataframe(df_comp.round(2))
+                
+                # Verifica comparabilità
+                range_medio = df_comp["Range"].mean()
+                if df_comp["Range"].std() < range_medio * 0.2:
+                    st.success("✅ Ottima comparabilità! I range sono simili tra ruoli.")
+                else:
+                    st.warning("⚠️ Comparabilità parziale. Alcuni ruoli hanno range molto diversi.")
+            
     except Exception as e:
         st.error(f"Errore durante l'elaborazione: {e}")
         st.write("Controlla che i file abbiano il formato corretto e tutte le colonne necessarie.")
 
 else:
-    with st.expander("🔍 Dettaglio Sistema Punteggio per Ruolo"):
+    with st.expander("🔍 Dettaglio Sistema Punteggio"):
         st.write("""
         **📊 Sistema di Punteggio Ruolo-Specifico:**
         
-        **🥅 PORTIERI (Scala: 80-150)**
+        **🎯 NOVITÀ - Comparabilità tra Ruoli:**
+        - **Normalizzazione Percentile**: I punteggi sono comparabili tra ruoli diversi
+        - **Fattore Impatto**: Bonus aggiuntivo per ruoli più impattanti nel gioco
+        - **Ora puoi scambiare il top portiere con il top attaccante!**
+        
+        **🥅 PORTIERI (Scala classica: 80-150)**
         - Gol: x10 (rarissimi, massimo valore)
         - Assist: x3 (rari ma preziosi)  
         - Rigori Parati: x8 (specialità del ruolo)
         - Ammonizioni: -1 (meno gravi)
         - Espulsioni: -6 (molto gravi)
         
-        **🛡️ DIFENSORI (Scala: 100-170)**
+        **🛡️ DIFENSORI (Scala classica: 100-170)**
         - Gol: x5 (molto preziosi)
         - Assist: x3 (importanti)
         - Rigori: x1 (meno comuni)
         - Ammonizioni: -1.5 (più accettabili)
         - Espulsioni: -4 (gravi)
         
-        **⚽ CENTROCAMPISTI (Scala: 120-190)**
+        **⚽ CENTROCAMPISTI (Scala classica: 120-190)**
         - Gol: x3.5 (buoni)
         - Assist: x4 (specialità del ruolo)
         - Rigori Parati/Segnati: x3 (importanti)
         - Rigori Calciati: x2 (frequenti)
         - Ammonizioni: -1.5 (nella media)
         
-        **🎯 ATTACCANTI (Scala: 140-200)**
+        **🎯 ATTACCANTI (Scala classica: 140-200)**
         - Gol: x2.5 (dovere del ruolo)
         - Assist: x2.5 (comunque utili)
         - Rigori Parati/Segnati: x4 (molto importanti)
         - Rigori Calciati: x2 (frequenti)
         - Ammonizioni: -2 (più pesanti)
         
-        **💡 La scala diversa per ruolo riflette:**
-        - Portieri: Meno variabilità nelle prestazioni
-        - Attaccanti: Massima variabilità e impatto
-        - Centrocampisti: Alta variabilità per polivalenza
-        - Difensori: Variabilità media ma bonus alti per gol
-        """)
+        **🔄 Modalità Percentile (Nuova!):**
+        - Tutti i ruoli hanno scala 50-200
+        - Il miglior giocatore per ruolo ha punteggio simile
+        - Perfetto per scambi cross-ruolo
         
-        # Mostra distribuzione attuale
-        if 'df' in locals():
-            st.write("**📈 Distribuzione Punteggi Attuali:**")
-            for ruolo in sorted(df["R"].unique()):
-                df_ruolo = df[df["R"] == ruolo]
-                st.write(f"**{ruolo}**: Media {df_ruolo['Punteggio'].mean():.1f}, "
-                       f"Min {df_ruolo['Punteggio'].min():.1f}, "
-                       f"Max {df_ruolo['Punteggio'].max():.1f}")
+        **⚡ Fattore Impatto (Nuovo!):**
+        - Portieri: 0.9 (meno impatto)
+        - Difensori: 0.95 (impatto medio-basso)
+        - Centrocampisti: 1.1 (alto impatto)
+        - Attaccanti: 1.15 (massimo impatto)
+        """)
     
     st.info("👆 Carica entrambi i file per iniziare l'analisi!")
 
@@ -389,7 +505,7 @@ with st.expander("📋 Istruzioni d'uso"):
     2. **Configura i pesi** nella sidebar per personalizzare la formula
     3. **Esplora le diverse tab:**
        - 🏆 **Classifica**: Top giocatori con filtri avanzati
-       - 🔄 **Scambi**: Simula scambi tra squadre (con tasto Reset!)
+       - 🔄 **Scambi**: Simula scambi tra squadre
        - 📈 **Analisi**: Grafici e correlazioni
        - 🎯 **Raccomandazioni**: Giocatori sottovalutati
        - 📊 **Statistiche**: Dati aggregati per ruolo
@@ -400,5 +516,4 @@ with st.expander("📋 Istruzioni d'uso"):
     - ✅ Analisi sottovalutati
     - ✅ Grafici interattivi
     - ✅ Filtri avanzati
-    - ✅ Reset selezioni scambi
     """)
