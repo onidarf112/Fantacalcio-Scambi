@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Fantacalcio - Scambi Avanzati by Onidarf ", layout="wide")
-st.title("⚽ Fantacalcio - Tool Scambi Avanzati Pro")
+st.title("⚽ Fantacalcio - Tool Scambi Avanzati Onidarf")
 
 # Sidebar per configurazioni
 st.sidebar.header("⚙️ Configurazioni")
