@@ -46,6 +46,8 @@ if file_quot and file_stat:
         df_quot = pd.read_excel(file_quot, header=1)
         df_stat = pd.read_excel(file_stat, header=1)
         df = pd.merge(df_quot, df_stat, on="Nome", how="inner")
+        df["R"] = df_stat.set_index("Nome").loc[df["Nome"], "R"].values
+
         
         # Controllo colonne
         colonne_necessarie = ["FVM M", "Fm", "Qt.A", "Pv", "Gf", "Ass", "Amm", "Esp", "Rp", "Rc", "R"]
